@@ -8,9 +8,10 @@ func New() *groupMembership {
 	return &groupMembership{}
 }
 
-func (g *groupMembership) GetGroupMembership(req *http.Request) (*http.Request, error) {
-	req.Header.Add("Group-Membership", "AzureCATE2E")
-	req.Header.Add("Group-Membership", "TestGroup")
+func (g *groupMembership) GetGroupMembership(w http.ResponseWriter, req *http.Request) (http.Header, error) {
+	header := http.Header{}
+	header.Add("Group-Membership", "AzureCATE2E")
+	header.Add("Group-Membership", "TestGroup")
 	return req, nil
 }
 

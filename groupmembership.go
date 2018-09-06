@@ -5,5 +5,5 @@ import (
 )
 
 type GroupMembership interface {
-	GetGroupMembership(req *http.Request) (*http.Request, error)
+	GetGroupMembership(w http.ResponseWriter, req *http.Request) (http.Header, error)
 }
