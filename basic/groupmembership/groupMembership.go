@@ -12,7 +12,7 @@ func (g *groupMembership) GetGroupMembership(w http.ResponseWriter, req *http.Re
 	header := http.Header{}
 	header.Add("Group-Membership", "AzureCATE2E")
 	header.Add("Group-Membership", "TestGroup")
-	return req, nil
+	return header, nil
 }
 
 type groupMembership struct{}

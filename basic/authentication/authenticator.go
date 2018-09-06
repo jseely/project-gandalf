@@ -14,7 +14,7 @@ type authenticator struct{}
 
 func (a *authenticator) Authenticate(w http.ResponseWriter, req *http.Request) (http.Header, error) {
 	auth := req.Header.Get("Authorization")
-	userpass, err := base64.StdEncoding.DecodeString(auth)
+	userpass, err := base64.StdEncoding.DecodeString(strings.Split(auth, " ")[1])
 	if err != nil {
 		return nil, err
 	}
