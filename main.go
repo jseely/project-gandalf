@@ -19,7 +19,7 @@ func updateHeader(h http.Header, req *http.Request) *http.Request {
 }
 
 func main() {
-	auth := authentication.New(os.Getenv("AZURE_AD_CLIENT_ID"), os.Getenv("AZURE_AD_CLIENT_SECRET"), os.Getenv("HOST_ADDR"))
+	auth := authentication.New(os.Getenv("AZURE_AD_CLIENT_ID"), os.Getenv("AZURE_AD_CLIENT_SECRET"), os.Getenv("HOST_ADDR"), os.Getenv("COOKIE_SECRET"))
 	gm := groupmembership.New()
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
@@ -50,6 +50,10 @@ func main() {
 		updateHeader(header, req)
 
 		proxyReq, err := http.NewRequest(req.Method, os.Getenv("REDIRECT_URL"), req.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		proxyReq.Header = req.Header
 
 		resp, err := http.DefaultClient.Do(proxyReq)

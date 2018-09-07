@@ -15,13 +15,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var (
-	sessionStoreKeyPairs = [][]byte{
-		[]byte("something-very-secret"),
-		nil,
-	}
-)
-
 type User struct {
 	Email       string
 	DisplayName string
@@ -44,10 +37,10 @@ func init() {
 	gob.Register(&oauth2.Token{})
 }
 
-func New(clientId, clientSecret, hostaddr string) *authenticator {
-	fsStore := sessions.NewFilesystemStore("", sessionStoreKeyPairs...)
+func New(clientId, clientSecret, hostaddr, cookieSecret string) *authenticator {
+	fsStore := sessions.NewFilesystemStore("", [][]byte{[]byte(cookieSecret), nil}...)
 	fsStore.MaxLength(0)
-	redirectURI := fmt.Sprintf("{}/aad/callback", hostaddr)
+	redirectURI := fmt.Sprintf("%s/aad/callback", hostaddr)
 	return &authenticator{
 		store:        fsStore,
 		clientID:     clientId,
