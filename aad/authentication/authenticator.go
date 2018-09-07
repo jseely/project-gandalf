@@ -20,7 +20,6 @@ var (
 		[]byte("something-very-secret"),
 		nil,
 	}
-	redirectURI = "http://104.210.55.174:6743/aad/callback"
 )
 
 type User struct {
@@ -45,13 +44,15 @@ func init() {
 	gob.Register(&oauth2.Token{})
 }
 
-func New(clientId, clientSecret string) *authenticator {
+func New(clientId, clientSecret, hostaddr string) *authenticator {
 	fsStore := sessions.NewFilesystemStore("", sessionStoreKeyPairs...)
 	fsStore.MaxLength(0)
+	redirectURI := fmt.Sprintf("{}/aad/callback", hostaddr)
 	return &authenticator{
 		store:        fsStore,
 		clientID:     clientId,
 		clientSecret: clientSecret,
+		redirectURI:  redirectURI,
 		config: &oauth2.Config{
 			ClientID:     clientId,
 			ClientSecret: clientSecret,
@@ -70,6 +71,7 @@ type authenticator struct {
 	config       *oauth2.Config
 	clientID     string
 	clientSecret string
+	redirectURI  string
 }
 
 func (a *authenticator) Authenticate(w http.ResponseWriter, req *http.Request) (http.Header, error) {
@@ -127,7 +129,7 @@ func (a *authenticator) HandleAADCallback(w http.ResponseWriter, req *http.Reque
 	form.Set("grant_type", "authorization_code")
 	form.Set("client_id", a.clientID)
 	form.Set("code", req.FormValue("code"))
-	form.Set("redirect_uri", redirectURI)
+	form.Set("redirect_uri", a.redirectURI)
 	form.Set("resource", "https://graph.windows.net")
 	form.Set("client_secret", a.clientSecret)
 

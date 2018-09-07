@@ -1,40 +1,28 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
+	"os"
 
-	ba "github.com/jseely/project-gandalf/basic/authentication"
-	bgm "github.com/jseely/project-gandalf/basic/groupmembership"
+	"github.com/jseely/project-gandalf/aad/authentication"
+	"github.com/jseely/project-gandalf/basic/groupmembership"
 )
 
-func cloneHeader(h http.Header) http.Header {
-	h2 := make(http.Header, len(h))
-	for k, vv := range h {
-		vv2 := make([]string, len(vv))
-		copy(vv2, vv)
-		h2[k] = vv2
-	}
-	return h2
-}
-
 func updateHeader(h http.Header, req *http.Request) *http.Request {
-	for key, values := range h {
-		for _, value := range values {
-			req.Header.Add(key, value)
-		}
+	for key, value := range h {
+		req.Header[key] = value
 	}
 	return req
 }
 
 func main() {
-	auth := ba.New()
-	gm := bgm.New()
+	auth := authentication.New(os.Getenv("AZURE_AD_CLIENT_ID"), os.Getenv("AZURE_AD_CLIENT_SECRET"), os.Getenv("HOST_ADDR"))
+	gm := groupmembership.New()
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		println("Authenticate")
+		defer req.Body.Close()
 		header, err := auth.Authenticate(w, req)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -61,15 +49,8 @@ func main() {
 
 		updateHeader(header, req)
 
-		body, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		proxyReq, err := http.NewRequest(req.Method, "http://localhost:12345", bytes.NewReader(body))
-
-		proxyReq.Header = cloneHeader(req.Header)
+		proxyReq, err := http.NewRequest(req.Method, os.Getenv("REDIRECT_URL"), req.Body)
+		proxyReq.Header = req.Header
 
 		resp, err := http.DefaultClient.Do(proxyReq)
 		if err != nil {
@@ -80,16 +61,8 @@ func main() {
 
 		//Update ResponseWriter
 		w.WriteHeader(resp.StatusCode)
-		w.Write([]byte(resp.Status))
-		responseData, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		fmt.Fprint(w, string(responseData))
-
+		io.Copy(w, resp.Body)
 	})
 
-	log.Fatal(http.ListenAndServe("0.0.0.0:6701", nil))
-
+	log.Fatal(http.ListenAndServe(os.Getenv("LISTEN_ADDR"), nil))
 }
