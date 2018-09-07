@@ -49,9 +49,11 @@ func main() {
 
 		updateHeader(header, req)
 
-		proxyReq, err := http.NewRequest(req.Method, os.Getenv("REDIRECT_URL"), req.Body)
+		url := os.Getenv("REDIRECT_URL") + req.URL.String()
+		proxyReq, err := http.NewRequest(req.Method, url, req.Body)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Error creating new proxy request: %v", err)
 			return
 		}
 		proxyReq.Header = req.Header
