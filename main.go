@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/jseely/project-gandalf/aad/authentication"
-	"github.com/jseely/project-gandalf/basic/groupmembership"
+	"github.com/jseely/project-gandalf/microsoft/groupmembership"
 )
 
 func updateHeader(h http.Header, req *http.Request) *http.Request {
