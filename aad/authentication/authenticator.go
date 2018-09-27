@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -38,9 +39,9 @@ func init() {
 }
 
 func New(clientId, clientSecret, hostaddr, cookieSecret string) *authenticator {
-	fsStore := sessions.NewFilesystemStore("", [][]byte{[]byte(cookieSecret), nil}...)
+	fsStore := sessions.NewFilesystemStore("", []byte(cookieSecret))
 	fsStore.MaxLength(0)
-	redirectURI := fmt.Sprintf("%s/aad/callback", hostaddr)
+	redirectURI := fmt.Sprintf("%saad/callback", hostaddr)
 	return &authenticator{
 		store:        fsStore,
 		clientID:     clientId,
@@ -81,11 +82,15 @@ func (a *authenticator) Authenticate(w http.ResponseWriter, req *http.Request) (
 		}
 	} else {
 		session.Values["token"] = nil
-		sessions.Save(req, w)
+		session.Save(req, w)
 	}
 
 	if token == nil {
-		http.Redirect(w, req, a.config.AuthCodeURL(SessionState(session), oauth2.AccessTypeOnline), http.StatusFound)
+		session.Values["redirect_path"] = req.URL.Path
+		session.Save(req, w)
+		redirectPath := a.config.AuthCodeURL(SessionState(session), oauth2.AccessTypeOnline)
+		log.Println(redirectPath)
+		http.Redirect(w, req, redirectPath, http.StatusFound)
 		return nil, nil
 	}
 	parts := strings.Split(token.AccessToken, ".")
@@ -113,7 +118,6 @@ func (a *authenticator) Authenticate(w http.ResponseWriter, req *http.Request) (
 
 func (a *authenticator) HandleAADCallback(w http.ResponseWriter, req *http.Request) (http.Header, error) {
 	session, _ := a.store.Get(req, "session")
-
 	if req.FormValue("state") != SessionState(session) {
 		return nil, Error{http.StatusBadRequest, "invalid callback state"}
 	}
@@ -152,7 +156,9 @@ func (a *authenticator) HandleAADCallback(w http.ResponseWriter, req *http.Reque
 		return nil, fmt.Errorf("error saving session: %v", err)
 	}
 
-	http.Redirect(w, req, "/", http.StatusFound)
+	redirectPath, _ := session.Values["redirect_path"].(string)
+	log.Println(redirectPath)
+	http.Redirect(w, req, redirectPath, http.StatusFound)
 	return nil, nil
 }
 
