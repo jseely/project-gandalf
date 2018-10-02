@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -75,25 +74,29 @@ func (a *authenticator) Authenticate(w http.ResponseWriter, req *http.Request) (
 
 	session, _ := a.store.Get(req, "session")
 
-	var token *oauth2.Token
+	var token string
 	if req.FormValue("logout") == "" {
+		if _, ok := req.Header["Token"]; ok {
+			token = req.Header.Get("Token")
+			session.Values["token"] = token
+			session.Save(req, w)
+		}
 		if v, ok := session.Values["token"]; ok {
-			token = v.(*oauth2.Token)
+			token = v.(string)
 		}
 	} else {
-		session.Values["token"] = nil
+		session.Values["token"] = ""
 		session.Save(req, w)
 	}
 
-	if token == nil {
+	if token == "" {
 		session.Values["redirect_path"] = req.URL.Path
 		session.Save(req, w)
 		redirectPath := a.config.AuthCodeURL(SessionState(session), oauth2.AccessTypeOnline)
-		log.Println(redirectPath)
 		http.Redirect(w, req, redirectPath, http.StatusFound)
 		return nil, nil
 	}
-	parts := strings.Split(token.AccessToken, ".")
+	parts := strings.Split(token, ".")
 	var claim map[string]interface{}
 	var err error
 	for len(parts[1])%4 != 0 {
@@ -103,13 +106,13 @@ func (a *authenticator) Authenticate(w http.ResponseWriter, req *http.Request) (
 	if err != nil {
 		return nil, fmt.Errorf("Error unmarshaling base64 encoded claim: %v", err)
 	}
+	fmt.Println(string(b))
 	err = json.Unmarshal(b, &claim)
 	if err != nil {
 		return nil, fmt.Errorf("Error unmarshaling json claim: %v", err)
 	}
 	header := http.Header{}
-	b, _ = json.Marshal(token)
-	header.Set("Token", string(b))
+	header.Set("Token", token)
 	header.Set("User-Principal-Name", claim["upn"].(string))
 	header.Set("Username", claim["name"].(string))
 	header.Set("Shortname", claim["given_name"].(string))
@@ -151,13 +154,12 @@ func (a *authenticator) HandleAADCallback(w http.ResponseWriter, req *http.Reque
 		return nil, fmt.Errorf("error decoding JSON response: %v", err)
 	}
 
-	session.Values["token"] = &token
+	session.Values["token"] = token.AccessToken
 	if err = sessions.Save(req, w); err != nil {
 		return nil, fmt.Errorf("error saving session: %v", err)
 	}
 
 	redirectPath, _ := session.Values["redirect_path"].(string)
-	log.Println(redirectPath)
 	http.Redirect(w, req, redirectPath, http.StatusFound)
 	return nil, nil
 }
